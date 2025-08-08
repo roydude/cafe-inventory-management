@@ -1,0 +1,20 @@
+{
+  "BREWING": [
+    { "id": "brw_01", "name": "브루잉 하우스 블렌드", "price": 4500 },
+    { "id": "brw_02", "name": "브루잉 싱글오리진", "price": 5000 }
+  ],
+  "COFFEE": [
+    { "id": "cof_01", "name": "에스프레소", "price": 3500 },
+    { "id": "cof_02", "name": "아메리카노", "price": 4000 },
+    { "id": "cof_03", "name": "라떼", "price": 4500 }
+  ],
+  "BEVERAGE": [
+    { "id": "bev_01", "name": "레몬에이드", "price": 5000 },
+    { "id": "bev_02", "name": "자몽에이드", "price": 5000 },
+    { "id": "bev_03", "name": "초코", "price": 5500 }
+  ],
+  "TWG Tea": [
+    { "id": "twg_01", "name": "1837 블랙티", "price": 4500 },
+    { "id": "twg_02", "name": "프렌치 얼 그레이", "price": 4500 }
+  ]
+}
