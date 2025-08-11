@@ -1,17 +1,60 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#6B4F4B" />
+    <meta
+      name="description"
+      content="사내 카페 음료 판매 기록 및 재고 관리 앱"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="음료 판매 기록" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/logo-32.png" />
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Preconnect for fonts -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link
       rel="stylesheet"
-      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css"
+      as="style"
       crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css"
     />
-    <title>매장 음료 판매 기록</title>
+
+    <!-- Open Graph for link previews -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="음료 판매 기록" />
+    <meta
+      property="og:description"
+      content="사내 카페 음료 판매 기록 및 재고 관리 앱"
+    />
+    <meta property="og:image" content="/icons/logo-512.png" />
+    <meta
+      property="og:url"
+      content="https://cafe-inventory-management.vercel.app/"
+    />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="음료 판매 기록" />
+    <meta
+      name="twitter:description"
+      content="사내 카페 음료 판매 기록 및 재고 관리 앱"
+    />
+    <meta name="twitter:image" content="/icons/logo-512.png" />
+
+    <title>음료 판매 기록</title>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
