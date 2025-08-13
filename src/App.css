@@ -14,3 +14,24 @@
 .animate-fade-in {
   animation: fade-in 200ms ease-out;
 }
+
+/* Collapsible slide animation */
+.collapsible {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translate3d(0, -2px, 0);
+  transition: max-height 240ms cubic-bezier(.2,.8,.2,1), opacity 180ms ease-out, transform 180ms ease-out;
+  will-change: max-height, opacity, transform;
+  contain: layout paint;
+  backface-visibility: hidden;
+}
+.collapsible.open {
+  max-height: 2000px; /* 충분한 최대 높이값으로 슬라이드 효과 */
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Toast dissolve */
+.toast { opacity: 0; transform: translateY(6px) scale(0.98); transition: opacity 220ms ease, transform 220ms ease; }
+.toast.open { opacity: 1; transform: translateY(0) scale(1); }
