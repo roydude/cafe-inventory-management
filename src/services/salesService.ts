@@ -7,6 +7,7 @@ import {
 export type Category = {
   id: string;
   name: string;
+  sort_order: number | null;
 };
 
 export type Menu = {
@@ -40,10 +41,11 @@ export async function fetchCategories(): Promise<Category[]> {
   if (!isSupabaseConfigured) return [];
   const { data, error } = await supabase
     .from("categories")
-    .select("*")
-    .order("name");
+    .select("id, name, sort_order")
+    .order("sort_order", { ascending: true, nullsFirst: true })
+    .order("name", { ascending: true });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as Category[];
 }
 
 export async function fetchMenus(): Promise<Menu[]> {
@@ -51,7 +53,8 @@ export async function fetchMenus(): Promise<Menu[]> {
   const { data, error } = await supabase
     .from("menus")
     .select("*")
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("code", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }

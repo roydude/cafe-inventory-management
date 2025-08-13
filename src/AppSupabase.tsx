@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Coffee,
   TrendingUp,
@@ -9,6 +9,8 @@ import {
   Menu as MenuIcon,
   LayoutDashboard,
   Clipboard,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   ensureSession,
@@ -45,32 +47,16 @@ export default function AppSupabase() {
   const [loginPassword, setLoginPassword] = useState<string>("");
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [isToastVisible, setIsToastVisible] = useState<boolean>(false);
+  const [toastKind, setToastKind] = useState<"generic" | "sale">("generic");
+  const [toastCount, setToastCount] = useState<number>(0);
+  const toastTimerRef = useRef<number | null>(null);
+  const toastClearRef = useRef<number | null>(null);
   // view 전환은 CSS 애니메이션으로 처리
   const [userMenuOpen, setUserMenuOpen] = useState<boolean>(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
-  const categoryOrder = ["COFFEE", "BREWING", "BEVERAGE", "TWG"];
-  const menuOrderItem: Record<string, string[]> = {
-    BREWING: ["페루 시에테 부엘타스 게이샤", "예맨 마타리 사예 네츄럴"],
-    COFFEE: [
-      "에스프레소",
-      "아메리카노",
-      "카페 라테",
-      "바닐라빈 라테",
-      "화이트 콜드브루 라테",
-    ],
-    BEVERAGE: [
-      "제주 말차 라테",
-      "다크쇼콜라 라테",
-      "수제 진저레몬차",
-      "수제 자몽차",
-      "수제 자몽에이드",
-      "히비스커스 한라봉 에이드",
-      "대추 쌍화차",
-      "배모과차",
-      "식혜",
-    ],
-    TWG: ["레드 오브 아프리카", "얼그레이 젠틀맨", "나폴레옹"],
-  };
+  // 메뉴 정렬은 code 오름차순으로 처리합니다.
 
   // Derived maps
   const categoryIdToName = useMemo(() => {
@@ -94,29 +80,80 @@ export default function AppSupabase() {
     return grouped;
   }, [menus]);
 
+  // 카테고리 확장 상태 초기화(기본: 펼침)
+  useEffect(() => {
+    setExpandedCategories((prev) => {
+      const next: Record<string, boolean> = { ...prev };
+      for (const c of categories) {
+        if (next[c.id] == null) next[c.id] = true;
+      }
+      return next;
+    });
+  }, [categories]);
+
+  function toggleCategoryExpand(id: string) {
+    setExpandedCategories((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   const orderedCategories = useMemo(() => {
-    const orderIndex = new Map(categoryOrder.map((n, i) => [n, i]));
-    return [...categories].sort(
-      (a, b) => (orderIndex.get(a.name) ?? 1_000_000) - (orderIndex.get(b.name) ?? 1_000_000)
-    );
+    return [...categories].sort((a, b) => {
+      const ao = a.sort_order ?? Number.POSITIVE_INFINITY;
+      const bo = b.sort_order ?? Number.POSITIVE_INFINITY;
+      if (ao !== bo) return ao - bo;
+      return a.name.localeCompare(b.name, "ko-KR");
+    });
   }, [categories]);
 
   const orderedMenusByCategory = useMemo(() => {
     const grouped: Record<string, RemoteMenu[]> = {};
     for (const category of orderedCategories) {
       const categoryMenus = menusByCategory[category.id] ?? [];
-      const orderList = menuOrderItem[category.name] ?? [];
-      const rank = new Map(orderList.map((n, i) => [n, i]));
+      const extractCodeRank = (code?: string) => {
+        if (!code) return Number.POSITIVE_INFINITY;
+        // 예: br1, cof12 → 접두사 제거 후 숫자 비교
+        const m = code.match(/(\d+)/);
+        if (m && m[1]) return parseInt(m[1], 10);
+        return Number.POSITIVE_INFINITY;
+      };
       const sorted = [...categoryMenus].sort((a, b) => {
-        const ra = rank.get(a.name) ?? 1_000_000;
-        const rb = rank.get(b.name) ?? 1_000_000;
+        const ra = extractCodeRank(a.code);
+        const rb = extractCodeRank(b.code);
         if (ra !== rb) return ra - rb;
-        return a.name.localeCompare(b.name, "ko-KR");
+        return (a.code ?? "").localeCompare(b.code ?? "");
       });
       grouped[category.id] = sorted;
     }
     return grouped;
   }, [orderedCategories, menusByCategory]);
+
+  function showToast(message: string, durationMs: number = 2000, kind: "generic" | "sale" = "generic") {
+    // clear existing timers to avoid flicker when stacking
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    if (toastClearRef.current) window.clearTimeout(toastClearRef.current);
+
+    setToast(message);
+    setIsToastVisible(true);
+    setToastKind(kind);
+    if (kind === "sale") {
+      setToastCount((prev) => (isToastVisible && toastKind === "sale" ? prev + 1 : 1));
+    } else {
+      setToastCount(0);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => setIsToastVisible(false), durationMs) as unknown as number;
+    toastClearRef.current = window.setTimeout(() => {
+      setToast(null);
+      setToastCount(0);
+      setToastKind("generic");
+    }, durationMs + 240) as unknown as number;
+  }
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+      if (toastClearRef.current) window.clearTimeout(toastClearRef.current);
+    };
+  }, []);
 
   // Load master data
   useEffect(() => {
@@ -176,8 +213,7 @@ export default function AppSupabase() {
           time_slot: getCurrentTimeslot(new Date()),
         },
       ]);
-      setToast("판매 내용이 기록됐어요.");
-      window.setTimeout(() => setToast(null), 2000);
+      showToast("판매 내용이 기록됐어요.", 2000, "sale");
     } catch (e: any) {
       setAuthError(e?.message ?? "판매 등록 실패");
     }
@@ -190,8 +226,7 @@ export default function AppSupabase() {
     try {
       await signInWithEmailPassword(loginEmail, loginPassword);
       setAuthReady(true);
-      setToast("로그인 됐어요.");
-      window.setTimeout(() => setToast(null), 2000);
+      showToast("로그인 됐어요.");
       const [cats, mns] = await Promise.all([fetchCategories(), fetchMenus()]);
       setCategories(cats);
       setMenus(mns);
@@ -210,8 +245,7 @@ export default function AppSupabase() {
       setCategories([]);
       setMenus([]);
       setSales([]);
-      setToast("로그아웃 됐어요.");
-      window.setTimeout(() => setToast(null), 2000);
+      showToast("로그아웃 됐어요.");
     }
   }
 
@@ -355,10 +389,6 @@ export default function AppSupabase() {
       return `${slot}\t${stats.total}`;
     });
     const content = ["시간대\t합계", ...rows].join("\n");
-    const showToast = (msg: string) => {
-      setToast(msg);
-      window.setTimeout(() => setToast(null), 2000);
-    };
     // 1) 현대 브라우저 + 보안 컨텍스트
     try {
       if (navigator.clipboard && (window as any).isSecureContext) {
@@ -400,7 +430,13 @@ export default function AppSupabase() {
         <div className="max-w-4xl mx-auto px-3 py-3">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-xl font-bold flex items-center gap-2">
-              <Coffee className="w-6 h-6 text-amber-600" /> 지공 앱
+              <img
+                src="/icons/logo-32.png"
+                srcSet="/icons/logo-32.png 1x, /icons/logo-64.png 2x"
+                alt="앱 로고"
+                className="w-6 h-6 rounded-sm"
+              />
+              지공 앱
             </h1>
             <div className="flex gap-1 items-center">
               {authReady ? (
@@ -435,10 +471,16 @@ export default function AppSupabase() {
       </header>
 
       <main className="max-w-4xl mx-auto p-3 pb-16">
-        {/* Toast */}
         {toast && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-full shadow">
-            {toast}
+          <div
+            className={`toast fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-4 py-2 rounded-full shadow ${
+              isToastVisible ? 'open' : ''
+            }`}
+          >
+            <span>{toast}</span>
+            {toastKind === "sale" && toastCount > 1 ? (
+              <span className="ml-2 font-semibold">+{toastCount}</span>
+            ) : null}
           </div>
         )}
         {!authReady ? (
@@ -491,53 +533,65 @@ export default function AppSupabase() {
 
             {orderedCategories.map((category) => (
               <div key={category.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 border-b border-gray-100">
-                  <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <button
+                  onClick={() => toggleCategoryExpand(category.id)}
+                  className="w-full text-left bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 px-4 py-3 border-b border-gray-800 flex items-center justify-between active:scale-[0.997] transition-transform"
+                  aria-expanded={expandedCategories[category.id] ?? true}
+                  aria-label={expandedCategories[category.id] === false ? "펼치기" : "접기"}
+                >
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
                     <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                     {category.name}
                   </h2>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {(orderedMenusByCategory[category.id] ?? []).map((m) => (
-                      <div
-                        key={m.id}
-                        className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition-all duration-200 border border-gray-200 hover:border-gray-300 hover:shadow-md"
-                      >
-                        <h3 className="font-bold text-sm mb-1.5 line-clamp-2 min-h-[1.5rem] text-gray-800">
-                          {m.name}
-                        </h3>
-                        {m.price != null && (
-                          <p className="text-gray-600 mb-3 text-sm font-medium">
-                            {m.price.toLocaleString()}원
-                          </p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            disabled={!m.hot_yn}
-                            onClick={() => addSale(m, "hot")}
-                            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center transition-all duration-200 transform hover:scale-105 active:scale-95 ${
-                              m.hot_yn
-                                ? "bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white shadow-md hover:shadow-lg"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
-                          >
-                            HOT
-                          </button>
-                          <button
-                            disabled={!m.ice_yn}
-                            onClick={() => addSale(m, "ice")}
-                            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-center transition-all duration-200 transform hover:scale-105 active:scale-95 ${
-                              m.ice_yn
-                                ? "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg"
-                                : "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            }`}
-                          >
-                            ICE
-                          </button>
+                  {(expandedCategories[category.id] ?? true) ? (
+                    <ChevronUp className="w-5 h-5 text-gray-200" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-200" />
+                  )}
+                </button>
+                <div className={`px-4 ${expandedCategories[category.id] ?? true ? 'py-4' : ''}`}>
+                  <div className={`collapsible ${expandedCategories[category.id] ?? true ? 'open' : ''}`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {(orderedMenusByCategory[category.id] ?? []).map((m) => (
+                        <div
+                          key={m.id}
+                          className="bg-gray-50 rounded-lg p-2.5 hover:bg-gray-100 transition-all duration-100 border border-gray-200 hover:border-gray-300 hover:shadow-md"
+                        >
+                          <h3 className="font-bold text-[13px] mb-1 line-clamp-2 min-h-[1.25rem] text-gray-800">
+                            {m.name}
+                          </h3>
+                          {m.price != null && (
+                            <p className="text-gray-600 mb-2 text-[12px] font-medium">
+                              {m.price.toLocaleString()}원
+                            </p>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              disabled={!m.hot_yn}
+                              onClick={() => addSale(m, "hot")}
+                              className={`flex-1 py-2 rounded-lg text-sm font-semibold flex items-center justify-center transition-all duration-100 transform active:scale-95 ${
+                                m.hot_yn
+                                  ? "bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 hover:from-rose-600 hover:to-red-700 active:from-rose-700 active:via-rose-800 active:to-red-900 text-white shadow-md hover:shadow-lg ring-1 ring-white/20"
+                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              }`}
+                            >
+                              HOT
+                            </button>
+                            <button
+                              disabled={!m.ice_yn}
+                              onClick={() => addSale(m, "ice")}
+                              className={`flex-1 py-2 rounded-lg text-sm font-semibold flex items-center justify-center transition-all duration-100 transform active:scale-95 ${
+                                m.ice_yn
+                                  ? "bg-gradient-to-br from-sky-500 via-sky-600 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:from-sky-700 active:via-blue-800 active:to-blue-900 text-white shadow-md hover:shadow-lg ring-1 ring-white/20"
+                                  : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              }`}
+                            >
+                              ICE
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
